@@ -1,26 +1,3 @@
-class Memoria_RAM:
-    capacidade = 34359738368  # 32Gbytes
-    lista_prontos = []
-
-    def adicionar_processo(self, processo):
-        if (self.capacidade - processo.tam) < 0: # Caso não haja espaço na memória primária
-            ... 
-    # Enviar processo para memória secundária
-    def swapp_out(self):
-        ...
-
-class Memoria_secundaria:
-    def __init__(self, identificador):
-        self.id = identificador
-        self.armazenamento = [] # O armazenamento será mesmo infinito?
-
-    def adicionar_processo(self, processo):
-        self.armazenamento.append(processo)
-
-    # Enviar processo para memória primária
-    def swapp_in(self):
-        ...
-
 class Processo:
     def __init__(self, chegada, fase1, entrada_saida, fase2, tamanho, disco):
         self.c = chegada
@@ -32,6 +9,29 @@ class Processo:
 
     def enviar_memoria_primaria(self):
         
+        ...
+
+class Memoria_RAM:
+    capacidade = 34359738368  # 32Gbytes
+    lista_prontos = []
+
+    def adicionar_processo(self, processo: Processo):
+        if (self.capacidade - processo.tam) < 0: # Caso não haja espaço na memória primária
+            ... 
+    # Enviar processo para memória secundária
+    def swapp_out(self):
+        ...
+
+class Memoria_secundaria:
+    def __init__(self, identificador):
+        self.id = identificador
+        self.armazenamento = [] # O armazenamento será mesmo infinito?
+
+    def adicionar_processo(self, processo: Processo):
+        self.armazenamento.append(processo)
+
+    # Enviar processo para memória primária
+    def swapp_in(self):
         ...
 
 class Processador:
@@ -53,9 +53,7 @@ class Computador:
     cpu4 = Processador('cpu4')
 
     # Leitura do arquivo com cada um dos processos
-    with open('input', 'r') as arq:  
+    with open('input.txt', 'r') as arq:  
         for linha in arq:
             processo_linha = [x.split() for x in linha.split(',')]
-            match linha[5]:
-                case '1':
-                    ...
+            
