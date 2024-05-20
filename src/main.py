@@ -8,23 +8,26 @@ class Processo:
         self.f2 = fase2
         self.tam = (tamanho * 1048576) # Em Mbytes
         self.d = disco
-
+        self.p = 1 # Define a prioridade do processo, caso seja bloqueado p += 1, e sempre começa com 1
     def enviar_memoria_primaria(self):
         ...
 
 class Memoria_RAM:
     capacidade = 34359738368  # 32Gbytes
     # Instanciando as quarto filas de processos prontos para serem executados 
-    fila1 = queue.Queue()
-    fila2 = queue.Queue()
-    fila3 = queue.Queue()
-    fila4 = queue.Queue()
+    filas = [queue.Queue() for _ in range(4)]
 
     def adicionar_processo(self, processo: Processo):
         if (self.capacidade - processo.tam) < 0: # Caso não haja espaço na memória primária
             return -1
-        else:
-            self.fila1.put(processo)
+        if (processo.p == 1):
+            self.filas[0].put(processo)
+        elif (processo.p == 2):
+            self.filas[1].put(processo)
+        elif (processo.p == 3):
+            self.filas[2].put(processo)
+        elif (processo.p == 4):
+            self.filas[3].put(processo)
 
     # Enviar processo para memória secundária
     def swapp_out(self):
