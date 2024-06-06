@@ -102,4 +102,3 @@ class Computador:
     with open('input.txt', 'r') as arq:
         for linha in arq:
             processo_linha = [x.split() for x in linha.split(',')]
-            # Further processing of processo_linha
