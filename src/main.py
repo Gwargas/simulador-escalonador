@@ -3,12 +3,19 @@ import random
 
 random.seed()
 
+QUANTUM = 3
 
 def gera_id():
     palavra = ""
-    for i in range(10):
-        letra = random.randint(33, 127)
-        j = chr(letra)
+    for _ in range(10):
+        numero_aleatorio = random.randint(0, 1000)
+        letras_minusculas = random.randint(97, 122)
+        letras_maiusculas = random.randint(65, 90)
+        
+        if(numero_aleatorio % 2 == 0):
+            j = chr(letras_maiusculas)
+        else:
+            j = chr(letras_minusculas)
         palavra += j
     return palavra
 
@@ -18,6 +25,60 @@ class PCB:
         self.estado = "Novo"
         self.id = id
         self.prioridade = prioridade
+
+class Escalonador:
+    def __init__(self, identificador):
+        self.id = identificador
+
+
+class Despachante(Escalonador):  # Curto Prazo
+    def __init__(self, identificador):
+        super(Despachante, self).__init__(identificador)  # Herdando do escalonador
+
+    def Despacho(self):  # Seleciona processo para receber o estado de Executando
+        situacao_atual = CPU.executar_processo(processo)
+        if (situacao_atual == 'Acabou o processo'):
+            ...
+        elif (situacao_atual == 'Atingiu o quantum'):
+            ...
+
+
+class MedioPrazo(Escalonador):
+    def __init__(self, identificador):
+        super(MedioPrazo, self).__init__(
+            identificador)  # Herdando do escalonador
+
+    def clock(self):
+        ...
+        #print('O primeiro quantum foi executado!\n')
+
+    # Memória RAM --> Memória Secundária.
+    def SwapOut(self, processo, ram, secundaria, id):  # Chama remover processo
+        if (processo.pcb.estado == "Pronto"):
+            secundaria[id].adicionar_processo(processo)  # Pronto-suspenso
+            # printa que passa de pronto -> pronto-suspenso
+            print(f'Processo de id: {processo.pcb.id} movido Pronto para Pronto-Suspenso\n')
+        else:  # estado == Bloqueado
+            print(f'Processo {processo.pcb.id} Bloqueado --> Bloqueado-Suspenso\n')
+            ...  # TODO: Criar função pra adicionar em Bloqueado-Suspeso
+
+        processo.remover_processo(processo)
+
+    # É preciso tirar o processo da lista de processos que estão na Memória Sececundária e jogá-lo pra lista da RAM
+    # TODO: Fazer ser retornado um booleano para verificar se é possível
+    def SwapIn(self, processo, ram, secundaria) -> bool:  # Memória Secundária --> Memoria_RAM
+        flag = True#Essa flag é de controle para o sucesso, pq pode ter limite na Memória, assim ele continua no 
+        if (processo.pcb.estado == "Pronto-Suspenso"):
+            flag = ram.adicionar_processo_pronto(processo)
+            if(flag == False): # Checar a flag antes de remover da Mem. Sec.
+                return flag
+            secundaria.remover_processo_pronto_suspenso(processo)
+            processo.pcb.estado = "Pronto"
+            print(f'Processo de id: {processo.pcb.id} movido de Pronto-Suspenso para {processo.pcb.estado}\n')
+            return flag
+        else:  # bloqueado-suspenso - > bloqueado
+            # func pra passar de bloqueadosusp -> bloqueado
+            print(f'Processo {processo.pcb.id} Bloqueado-Suspenso --> Bloqueado\n')
 
 
 class Processo:
@@ -35,32 +96,44 @@ class Processo:
         self.etapa = 0
         self.pcb = PCB(gera_id(), self.prioridade)
 
-    def enviar_memoria_primaria(self):
-        ...
+    # def enviar_memoria_primaria(self):
+       # ...
 
 
 class Memoria_RAM:
-    capacidade = 34359738368  # 32Gbytes
+    capacidade = 34359738368  # 32Gbytes == 32768 Mbytes
+    memoria = [] # 2048Mb cada partição(particionamento fixo) ou seja te
     espaco_livre = capacidade  # Começa com 32Gbytes livres
     # Instanciando as quatro filas de processos prontos para serem executados
-    filas = [queue.Queue() for _ in range(4)]
+    filas = [queue.Queue() for _ in range(4)]#filas de prontos
     bloqueados = []
+    escalonador_medio_prazo = MedioPrazo('medio_prazo_id')
 
-    def adicionar_processo_pronto(self, processo: Processo):
-        if (self.espaco_livre - processo.tamanho) < 0:  # Caso não haja espaço na memória primária
+    def adicionar_processo_pronto(self, processo: Processo) -> bool:
+        #if (self.espaco_livre - processo.tamanho) < 0:  # Caso não haja espaço na memória primária
             # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-            return SwapOut(processo).pronto_suspenso
+            #return self.escalonador_medio_prazo.SwapOut(processo)
+        if(len(self.memoria) == 16): 
+            print("Memória Cheia")
+            return False
+        
         if (processo.prioridade == 1):
+            self.memoria.append(processo)
             self.filas[0].put(processo)
         elif (processo.prioridade == 2):
+            self.memoria.append(processo)
             self.filas[1].put(processo)
         elif (processo.prioridade == 3):
+            self.memoria.append(processo)
             self.filas[2].put(processo)
         elif (processo.prioridade == 4):
+            self.memoria.append(processo)
             self.filas[3].put(processo)
-        self.espaco_livre -= processo.tamanho
 
-    def remover_processo(self, processo: Processo):
+        return True
+        #self.espaco_livre -= processo.tamanho
+
+    def remover_processo(self, processo: Processo, escalonador_medio_prazo : MedioPrazo):
         # Como resolver isso? (Só sairá da RAM caso outro processo queirae entrar)
         if (self.espaco_livre + processo.tamanho) > self.capacidade:
             self.espaco_livre = self.capacidade
@@ -68,58 +141,57 @@ class Memoria_RAM:
             self.filas[0].pop(0)
             if (processo.pcb.estado == "Pronto"):
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-                SwapOut(processo).pronto_suspenso
+                escalonador_medio_prazo.SwapOut(processo).pronto_suspenso
             else:  # Condição para caso esteja na fila de bloqueados
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-                SwapOut(processo).bloqueado_suspenso
+                escalonador_medio_prazo.SwapOut(processo).bloqueado_suspenso
         elif (processo.prioridade == 2):
             self.filas[1].pop(0)
             if (processo.pcb.estado == "Pronto"):
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-                SwapOut(processo).pronto_suspenso
+                escalonador_medio_prazo.SwapOut(processo).pronto_suspenso
             else:
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-                SwapOut(processo).bloqueado_suspenso
+                escalonador_medio_prazo.SwapOut(processo).bloqueado_suspenso
         elif (processo.prioridade == 3):
             self.filas[2].pop(0)
             if (processo.pcb.estado == "Pronto"):
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-                SwapOut(processo).pronto_suspenso
+                escalonador_medio_prazo.SwapOut(processo).pronto_suspenso
             else:
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-                SwapOut(processo).bloqueado_suspenso
+                escalonador_medio_prazo.SwapOut(processo).bloqueado_suspenso
         elif (processo.prioridade == 4):
             self.filas[3].pop(0)
             if (processo.pcb.estado == "Pronto"):
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-                SwapOut(processo).pronto_suspenso
+                escalonador_medio_prazo.SwapOut(processo).pronto_suspenso
             else:
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
-                SwapOut(processo).bloqueado_suspenso
+                escalonador_medio_prazo.SwapOut(processo).bloqueado_suspenso
         self.espaco_livre += processo.tamanho
 
 
 class Memoria_secundaria:  # Discos
-    fila_suspensos = []  # Filas com processos pronto-suspensos
-    bloqueados = []  # Criar func de bloqueado suspenso
-
     def __init__(self, identificador):
         self.id = identificador
-        self.armazenamento = []
+        self.fila_suspensos = [] # Filas com processos pronto-suspensos
+        self.bloqueados = [] # Fila com processos bloqueados (suspensos)
 
     def adicionar_processo_pronto_suspenso(self, processo: Processo):
         self.fila_suspensos.append(processo)
 
     def adicionar_processo_bloqueado_suspenso(self, processo: Processo):
         self.bloqueados.append(processo)
+    # Aqui como não tem uma capacidade, basta tirar daqui o processo
+    def remover_processo_pronto_suspenso(self, processo: Processo):
+        self.fila_suspensos.remove(processo)
 
-    # aqui como não tem uma capacidade, basta tirar daqui o processo
-    def remover_processo(self, processo: Processo):
-        self.armazenamento.remove(processo)
+    def remover_processo_bloqueado_suspenso(self, processo: Processo):
+        self.bloqueados.remove(processo)
 
 
 class CPU:
-    QUANTUM = 3
 
     def __init__(self, identificador):
         self.id = identificador
@@ -135,7 +207,7 @@ class CPU:
         #
         #
 
-        if processo.f
+        #if processo.f
 
         # verifica se acabou o processo
         if processo.momento_saida == 0:
@@ -151,58 +223,6 @@ class CPU:
             return 'Atingiu o quantum'
 
         return 'Está executando'
-
-
-class Escalonador:
-    def __init__(self, identificador):
-        self.id = identificador
-
-
-class Despachante(Escalonador):  # Curto Prazo
-    def __init__(self, identificador):
-        super(Despachante, self).__init__(
-            identificador)  # Herdando do escalonador
-
-    def Despacho(self):  # Seleciona processo para receber o estado de Executando
-        situacao_atual = cpu.executar_processo(processo)
-        if (situacao_atual == 'Acabou o processo'):
-            ...
-        elif (situacao_atual == 'Atingiu o quantum'):
-            ...
-
-
-class MedioPrazo(Escalonador):
-    def __init__(self, identificador):
-        super(MedioPrazo, self).__init__(
-            identificador)  # Herdando do escalonador
-
-    def clock(self):
-
-        print('O primeiro quantum foi executado!\n')
-
-    # Memória RAM --> Memória Secundária.
-    def SwapOut(self, processo, ram, secundaria, id):  # Chama remover processo
-        if (processo.PCB.estado == "Pronto"):
-            secundaria[id].adicionar_processo(processo)  # Pronto-suspenso
-            # printa que passa de pronto -> pronto-suspenso
-            print(f'Processo {processo.pcb.id} Pronto --> Pronto-Suspenso\n')
-        else:  # estado == Bloqueado
-            print(f'Processo {
-                  processo.pcb.id} Bloqueado --> Bloqueado-Suspenso\n')
-            ...  # TODO: Criar função pra adicionar em Bloqueado-Suspeso
-
-        processo.remover_processo(processo)
-
-    # É preciso tirar o processo da lista de processos que estão na Memória Sececundária e jogá-lo pra lista da RAM
-    # TODO: Fazer ser retornado um booleano para verificar se é possível
-    def SwapIn(self, processo, ram, secundaria):   # Memória Secundária --> Memoria_RAM
-        if (processo.PCB.estado == "Pronto-Suspenso"):
-            processo.adicionar_processo_pronto(processo)
-            print(f'Processo {processo.pcb.id} Pronto-Suspenso --> Pronto\n')
-        else:  # bloqueado suspenso - > bloqueado
-            # func pra passar de bloqueadosusp -> bloqueado
-            print(f'Processo {
-                  processo.pcb.id} Bloqueado-Suspenso --> Bloqueado\n')
 
 
 # Mémória secundária: armazenamento ->
@@ -239,38 +259,42 @@ class Computador:
             processo_linha = [x.strip() for x in linha.split(',')]
 
             processo = Processo(int(processo_linha[0]), int(processo_linha[1]), int(processo_linha[2]),  # e.g. 12,4,5,6,800,2
-                                int(processo_linha[3]), int(processo_linha[4]), int(processo_linha[5]))
+                                int(processo_linha[3]), int(processo_linha[4]), (processo_linha[5]))
             id = processo_linha[5]
 
             processo.pcb.estado = "Pronto-Suspenso"
             print(f'Processo de id: {processo.pcb.id} movido de Novo para {
                   processo.pcb.estado}\n')
             processos.put(processo)
-            secundaria[id].adicionar_processo(processo)
+            secundaria[id].adicionar_processo_pronto_suspenso(processo)#Está depois do print de troca mas da no mesmo
 
-    medioPrazo = MedioPrazo('medio_prazo_id')
-
-    while True:
-        clock = input("")
-        if clock == "":
+    medioPrazo = MedioPrazo('medio_prazo_id')#Só iniciou ele
+    num = 0 
+    while num<10:#Ajeitar p/ o "clock"
+        #clock = int(input("Teste: "))
+        #if clock == 1:
             # print('1 Quantum')
 
             # A cada clock, tenta alocar um processo inicial da memória secundária para a memória RAM. Se não conseguir, esse processo vai para o fim da fila.
-            if not processos.empty():  # Verifica se a fila não está vazia
-                processo = processos.get()  # Remove e retorna o primeiro processo da fila
-                sucesso = medioPrazo.SwapIn(processo, ram, secundaria)
+        if not processos.empty():  # Verifica se a fila não está vazia
+            processo = processos.get()  # Remove e retorna o primeiro processo da fila
+            sucesso = medioPrazo.SwapIn(processo, ram, secundaria[processo.disco])
 
-                if not sucesso:
-                    # Se o SwapIn falhar, coloca o processo de volta ao final da fila
-                    processos.put(processo)
+            if not sucesso:
+                # Se o SwapIn falhar, coloca o processo de volta ao final da fila
+                processos.put(processo)
 
-            medioPrazo.clock()
+        medioPrazo.clock()
+        num+= 1
 
-        elif clock == "-1":
-            break
-        else:
-            print("Valor inválido")
+        #elif clock == "-1":
+            #break
+        #else:
+            #print("Valor inválido")
+    
+    
+        
 
-
+    
 if __name__ == '__main__':
     Computador()  # Só para testar :D
