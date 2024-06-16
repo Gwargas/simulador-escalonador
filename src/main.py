@@ -19,12 +19,17 @@ def gera_id():
         palavra += j
     return palavra
 
+def gera_prio():
+    n  = random.randint(1,5)
+    tot = (n % 4)
+    return tot
 
 class PCB:
-    def __init__(self, id, prioridade):
+    def __init__(self, id,prioridade):
         self.estado = "Novo"
         self.id = id
         self.prioridade = prioridade
+        
 
 class Escalonador:
     def __init__(self, identificador):
@@ -74,6 +79,7 @@ class MedioPrazo(Escalonador):
                 return flag
             secundaria.remover_processo_pronto_suspenso(processo)
             processo.pcb.estado = "Pronto"
+            processo.pcb.prioridade = 1
             print(f'Processo de id: {processo.pcb.id} movido de Pronto-Suspenso para {processo.pcb.estado}\n')
             return flag
         else:  # bloqueado-suspenso - > bloqueado
@@ -82,19 +88,19 @@ class MedioPrazo(Escalonador):
 
 
 class Processo:
-    def __init__(self, chegada, fase1, entrada_saida, fase2, tamanho, disco):
-        self.c = chegada
+    def __init__(self, c, fase1, entrada_saida, fase2, tamanho, disco):
+        self.chegada = c
         self.f1 = fase1
         self.io = entrada_saida
         self.f2 = fase2
         self.tamanho = (tamanho * 1048576)  # Em Mbytes
         self.disco = disco
         # Define a prioridade do processo, caso sofra time-slice p += 1, e sempre começa com 1 (fila de maior prioridade)
-        self.prioridade = 1
+        self.prioridade = gera_prio()
         # TODO: Guardar quanto tempo o processo gasta em cada fase
         # Quando acabar o tempo total em CPU, o processo terminou (só atualizar o tempo para o fim do processo quando ele estiver em CPU)
         self.etapa = 0
-        self.pcb = PCB(gera_id(), self.prioridade)
+        self.pcb = PCB(gera_id(),(self.prioridade))
 
     # def enviar_memoria_primaria(self):
        # ...
@@ -103,6 +109,7 @@ class Processo:
 class Memoria_RAM:
     capacidade = 34359738368  # 32Gbytes == 32768 Mbytes
     memoria = [] # 2048Mb cada partição(particionamento fixo) ou seja te
+    
     espaco_livre = capacidade  # Começa com 32Gbytes livres
     # Instanciando as quatro filas de processos prontos para serem executados
     filas = [queue.Queue() for _ in range(4)]#filas de prontos
@@ -113,31 +120,40 @@ class Memoria_RAM:
         #if (self.espaco_livre - processo.tamanho) < 0:  # Caso não haja espaço na memória primária
             # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
             #return self.escalonador_medio_prazo.SwapOut(processo)
+        
         if(len(self.memoria) == 16): 
             print("Memória Cheia")
             return False
         
-        if (processo.prioridade == 1):
+        if (processo.pcb.prioridade == 1):
             self.memoria.append(processo)
             self.filas[0].put(processo)
-        elif (processo.prioridade == 2):
+        elif (processo.pcb.prioridade == 2):
             self.memoria.append(processo)
             self.filas[1].put(processo)
-        elif (processo.prioridade == 3):
+        elif (processo.pcb.prioridade == 3):
             self.memoria.append(processo)
             self.filas[2].put(processo)
-        elif (processo.prioridade == 4):
+        elif (processo.pcb.prioridade == 4):
             self.memoria.append(processo)
             self.filas[3].put(processo)
 
+            
+        self.memoria = sorted(self.memoria,key=lambda memo: memo.prioridade)
         return True
         #self.espaco_livre -= processo.tamanho
 
+    # def verifica_espaco():
+
+
+
     def remover_processo(self, processo: Processo, escalonador_medio_prazo : MedioPrazo):
+        self.memoria.sort(self.memoria,key=lambda memo: memo.prioridade)
         # Como resolver isso? (Só sairá da RAM caso outro processo queirae entrar)
+        
         if (self.espaco_livre + processo.tamanho) > self.capacidade:
             self.espaco_livre = self.capacidade
-        if (processo.prioridade == 1):
+        if (processo.pcb.prioridade == 1):
             self.filas[0].pop(0)
             if (processo.pcb.estado == "Pronto"):
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
@@ -145,7 +161,7 @@ class Memoria_RAM:
             else:  # Condição para caso esteja na fila de bloqueados
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
                 escalonador_medio_prazo.SwapOut(processo).bloqueado_suspenso
-        elif (processo.prioridade == 2):
+        elif (processo.pcb.prioridade == 2):
             self.filas[1].pop(0)
             if (processo.pcb.estado == "Pronto"):
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
@@ -153,7 +169,7 @@ class Memoria_RAM:
             else:
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
                 escalonador_medio_prazo.SwapOut(processo).bloqueado_suspenso
-        elif (processo.prioridade == 3):
+        elif (processo.pcb.prioridade == 3):
             self.filas[2].pop(0)
             if (processo.pcb.estado == "Pronto"):
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
@@ -161,7 +177,7 @@ class Memoria_RAM:
             else:
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
                 escalonador_medio_prazo.SwapOut(processo).bloqueado_suspenso
-        elif (processo.prioridade == 4):
+        elif (processo.pcb.prioridade == 4):
             self.filas[3].pop(0)
             if (processo.pcb.estado == "Pronto"):
                 # Coloquei isso, caso implementemos uma função para colocar como pronto_suspenso e uma como bloqueado_suspenso
@@ -191,13 +207,48 @@ class Memoria_secundaria:  # Discos
         self.bloqueados.remove(processo)
 
 
-class CPU:
-
-    def __init__(self, identificador):
-        self.id = identificador
+class CPU: 
+    def __init__(self, identificador, MP,PS):#MS vai ser uma parte da memória variando em 4, e só tem uma fila de processos
+        self.id = identificador #Identificador do número da  (processo.pcb.prioridade)
+        self.clock = 0 #Contador de unidades de tempo de execução do processo atual
+        self.memoria_principal = MP #Instância da Mem Princ.
+        self.prontos_suspensos = PS #Fila de prontos suspensos
+                                                    # [p1,p2,p3]
+    def executar_processo(self, processo: Processo):# [ 1,2,4  ]
         self.clock = 0
+        i = 0
+        while len(self.memoria_principal) != 0:#Lista com partição da memoria com 4 elems
+            #self.memoria_principal[i]
+            while self.clock < 3:
+                if (processo.etapa == 0):
+                    if(processo.f1 > 0):#Assumimos que no arquivo os momentos de chegada estão ordenados, assim nas filas de prioridade já estão ordenadas, e se empatam em tempo de chegada vai na ordem da fila
+                        processo.f1 -= 1
+                        self.clock += 1
 
-    def executar_processo(self, processo: Processo):
+
+                        print("1 quantum")
+                        
+                    else:
+                        # o processo terminou
+                        
+                        print("1 quantum")
+                        
+                else:
+                    if(processo.f2 > 0):
+                        processo.f2 -= 1
+                        self.clock += 1
+                    else:
+                        # o processo terminou
+
+                        print("Acabou")#vai de Exec -> Fim
+                        self.memoria_principal.remove(processo)
+
+            i += 1#pode ser mudado, depende se veio de bloqueado aí já escolhe outro para entrar em exec,pois aí o proc que vai exec vai receber o i = a posição na lista de memoria principal
+            self.clock = 0
+                
+        
+        
+                
         processo.momento_saida -= 1
         self.clock += 1
 
@@ -217,7 +268,7 @@ class CPU:
 
         # verifica se atingiu o quantum
         if self.clock == self.QUANTUM:
-            processo.prioridade += 1
+            processo.pcb.prioridade += 1
             self.clock = 0
             print(f'Processo {processo.pcb.id} sofreu um Time-slicing\n')
             return 'Atingiu o quantum'
@@ -233,11 +284,6 @@ class CPU:
 class Computador:
     # Inicialização da memória principal
     ram = Memoria_RAM()
-    # Inicialização dos processadores
-    cpu1 = CPU('cpu1')
-    cpu2 = CPU('cpu2')
-    cpu3 = CPU('cpu3')
-    cpu4 = CPU('cpu4')
     # Inicialização dos discos
     secundaria1 = Memoria_secundaria('secundaria1')
     secundaria2 = Memoria_secundaria('secundaria2')
@@ -268,6 +314,7 @@ class Computador:
             processos.put(processo)
             secundaria[id].adicionar_processo_pronto_suspenso(processo)#Está depois do print de troca mas da no mesmo
 
+
     medioPrazo = MedioPrazo('medio_prazo_id')#Só iniciou ele
     num = 0 
     while num<10:#Ajeitar p/ o "clock"
@@ -291,6 +338,12 @@ class Computador:
             #break
         #else:
             #print("Valor inválido")
+            # Inicialização dos processadores
+
+    cpu1 = CPU('cpu1',ram.memoria[:4],processos)
+    cpu2 = CPU('cpu2',ram.memoria[4:8],processos)
+    cpu3 = CPU('cpu3',ram.memoria[8:12],processos)
+    cpu4 = CPU('cpu4',ram.memoria[12:],processos)
     
     
         
