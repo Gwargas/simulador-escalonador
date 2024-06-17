@@ -52,6 +52,9 @@ class Despachante(Escalonador): # Curto Prazo
         
         if (cpu.processo): 
             estado = cpu.executar_processo()
+            
+            # print({cpu.processo.})
+
             if (estado == "QuantumMax"): #Time Slice
                 cpu.processo.pcb.prioridade += 1
                 if(cpu.processo.pcb.prioridade == 5):#Volta para a primeira fila caso chegue na última e precise voltar a executar
@@ -120,6 +123,7 @@ class Processo:
         self.chegada = c
         self.f1 = fase1
         self.io = entradaSaida
+        self.ioEtapa = 0
         self.f2 = fase2
         self.tamanho = (tamanho * 1048576)  # Em Mbytes
         self.disco = disco
@@ -181,14 +185,31 @@ class MemoriaRam:
                 self.bloqueados.append(processo)
                 processo.pcb.estado = "Bloqueado"
                 print(f'Processo de id: {processo.pcb.id} movido de Executando para {processo.pcb.estado}\n')
+                print('Fila de Bloqueado:', self.bloqueados)
         else:
             self.escalona.swap_out(processo)
             print("Memória Cheia")
+            
                 
 
     def remove_processo(self, processo: Processo):
         self.memoria.remove(processo)
         print(f'Processo de id: {processo.pcb.id} terminou a execução\n')
+
+
+    def processa_bloqueados(self):
+        for processo in self.bloqueados:
+            processo.ioEtapa += 1
+            print(f'Processo {processo.pcb.id} está na fila de bloqueados')
+            print(processo.ioEtapa)
+            print(processo.io)
+            print('--')
+            if (processo.ioEtapa == processo.io):
+                processo.ioEtapa = 0
+                self.bloqueados.remove(processo)
+                processo.pcb.estado = "Pronto"
+                self.adicionar_processo_pronto(processo)
+                
 
 class MemoriaSecundaria:
     def __init__(self, identificador):
@@ -234,7 +255,7 @@ class CPU:
         if (self.processo.etapa == self.processo.f1): 
             return 'TerminouFase1'
         
-        if (self.processo.etapa == self.processo.f2):
+        if (self.processo.etapa == (self.processo.f2 + self.processo.f1 + self.processo.io)):
             return 'TerminouFase2'
             
         if (self.clock == QUANTUM):
@@ -309,6 +330,7 @@ class Computador:
         
         despachante.Despacho(ram, cpu1)
 
+        ram.processa_bloqueados()
 
 if __name__ == '__main__':
     Computador()
